@@ -70,6 +70,14 @@ class DashboardView(QWidget):
                 min-height: 28px;
                 color: #28384c;
             }
+            QComboBox QAbstractItemView {
+                background: white;
+                border: 1px solid #d8e0ea;
+                color: #28384c;
+                selection-background-color: #e8f2ff;
+                selection-color: #172033;
+                outline: 0;
+            }
             QPushButton {
                 background: white;
                 border: 1px solid #d8e0ea;

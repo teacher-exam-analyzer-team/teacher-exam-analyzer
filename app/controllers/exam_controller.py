@@ -7,6 +7,7 @@ from app.models.exam_question_model import ExamQuestion
 from app.repositories.exam_question_repository import ExamQuestionRepository
 from app.repositories.exam_repository import ExamRepository
 from app.repositories.question_repository import QuestionRepository
+from app.repositories.student_repository import StudentRepository
 
 
 class ExamController:
@@ -24,6 +25,10 @@ class ExamController:
         self.generated_exam_id_by_exam_id: set[int] = set()
 
         self._connect_view_events()
+        self._initialize_filter_options()
+        self._refresh_generated_exams()
+
+    def refresh_options(self) -> None:
         self._initialize_filter_options()
         self._refresh_generated_exams()
 
@@ -86,6 +91,15 @@ class ExamController:
             else {}
         )
         questions = QuestionRepository.read_all(active_only=True)
+        class_names = {question.class_name for question in questions if question.class_name}
+        try:
+            class_names.update(
+                student.class_name
+                for student in StudentRepository.read_all(active_only=True)
+                if student.class_name
+            )
+        except Exception:
+            pass
 
         filter_options = {
             **filter_options,
@@ -108,7 +122,7 @@ class ExamController:
                 )
                 or filter_options.get("tags", []),
             ),
-            "classes": sorted({question.class_name for question in questions if question.class_name})
+            "classes": sorted(class_names)
             or filter_options.get("classes", ["1학년 1반", "1학년 2반", "1학년 3반"]),
         }
         self.view.set_filter_options(filter_options)

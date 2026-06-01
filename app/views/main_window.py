@@ -137,12 +137,24 @@ class MainWindow(QMainWindow):
             QListWidget::item:hover:!selected {
                 background: rgba(255, 255, 255, 0.08);
             }
+            QComboBox QAbstractItemView {
+                background: white;
+                border: 1px solid #d8e0ea;
+                color: #28384c;
+                selection-background-color: #e8f2ff;
+                selection-color: #172033;
+                outline: 0;
+            }
             """
         )
 
     def _on_page_changed(self, index: int) -> None:
         if index == 0 and self.dashboard_controller is not None:
             self.dashboard_controller.refresh_options()
+        if index == 2 and self.question_controller is not None:
+            self.question_controller.refresh_options()
+        if index == 3 and self.exam_controller is not None:
+            self.exam_controller.refresh_options()
         if index == 4 and self.result_controller is not None:
             self.result_controller.refresh_options()
         if index == 5 and self.analysis_controller is not None:

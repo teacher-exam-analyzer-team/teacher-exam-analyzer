@@ -91,6 +91,14 @@ class StudentManageView(QWidget):
                 min-height: 30px;
                 padding: 8px 10px;
             }
+            QComboBox QAbstractItemView {
+                background: white;
+                border: 1px solid #d8e0ea;
+                color: #28384c;
+                selection-background-color: #e8f2ff;
+                selection-color: #172033;
+                outline: 0;
+            }
             QPushButton {
                 background: white;
                 border: 1px solid #d8e0ea;
@@ -185,12 +193,38 @@ class StudentManageView(QWidget):
             self.students_table.setRowHeight(row_index, 38)
 
     def _refresh_students(self) -> None:
+        self._refresh_class_filter_options()
         keyword = self.search_input.text().strip()
         class_name = self.class_filter.currentText()
         if class_name == "전체 반":
             class_name = ""
 
         self.set_students_data(self.student_controller.search_students(keyword, class_name))
+
+    def _refresh_class_filter_options(self) -> None:
+        if not hasattr(self, "class_filter"):
+            return
+
+        current = self.class_filter.currentText()
+        values = ["전체 반", "1학년 1반", "1학년 2반", "1학년 3반"]
+        try:
+            for student in self.student_controller.get_students():
+                class_name = str(student.get("class_name", "") or "").strip()
+                if class_name and class_name not in values:
+                    values.append(class_name)
+        except Exception:
+            pass
+
+        existing = [self.class_filter.itemText(index) for index in range(self.class_filter.count())]
+        if existing == values:
+            return
+
+        self.class_filter.blockSignals(True)
+        self.class_filter.clear()
+        self.class_filter.addItems(values)
+        index = self.class_filter.findText(current)
+        self.class_filter.setCurrentIndex(index if index >= 0 else 0)
+        self.class_filter.blockSignals(False)
 
     def _on_register_clicked(self) -> None:
         name = self.name_input.text().strip()
