@@ -38,7 +38,7 @@ class AnalysisView(QWidget):
         root_layout.addWidget(scroll)
 
         content = QWidget()
-        content.setMinimumWidth(1080)
+        content.setMinimumWidth(920)
         scroll.setWidget(content)
         layout = QVBoxLayout(content)
         layout.setContentsMargins(28, 26, 28, 24)
