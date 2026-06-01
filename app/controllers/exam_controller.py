@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.models.exam_model import Exam
@@ -7,6 +8,7 @@ from app.models.exam_question_model import ExamQuestion
 from app.repositories.exam_question_repository import ExamQuestionRepository
 from app.repositories.exam_repository import ExamRepository
 from app.repositories.question_repository import QuestionRepository
+from app.repositories.student_repository import StudentRepository
 
 
 class ExamController:
@@ -24,6 +26,10 @@ class ExamController:
         self.generated_exam_id_by_exam_id: set[int] = set()
 
         self._connect_view_events()
+        self._initialize_filter_options()
+        self._refresh_generated_exams()
+
+    def refresh_options(self) -> None:
         self._initialize_filter_options()
         self._refresh_generated_exams()
 
@@ -48,6 +54,8 @@ class ExamController:
             self.view.save_exam_requested.connect(self.save_exam)
         if hasattr(self.view, "pdf_export_requested"):
             self.view.pdf_export_requested.connect(self.export_pdf)
+        if hasattr(self.view, "exam_pdf_export_requested"):
+            self.view.exam_pdf_export_requested.connect(self.export_saved_exam_pdf)
         if hasattr(self.view, "preview_requested"):
             self.view.preview_requested.connect(self.preview_exam)
         if hasattr(self.view, "exam_delete_requested"):
@@ -84,6 +92,18 @@ class ExamController:
             else {}
         )
         questions = QuestionRepository.read_all(active_only=True)
+        class_names: dict[str, str] = {}
+        for question in questions:
+            class_name = self._format_class_name(question.class_name)
+            if class_name:
+                class_names[self._normalize_class_name(class_name)] = class_name
+        try:
+            for student in StudentRepository.read_all(active_only=True):
+                class_name = self._format_class_name(student.class_name)
+                if class_name:
+                    class_names[self._normalize_class_name(class_name)] = class_name
+        except Exception:
+            pass
 
         filter_options = {
             **filter_options,
@@ -106,7 +126,7 @@ class ExamController:
                 )
                 or filter_options.get("tags", []),
             ),
-            "classes": sorted({question.class_name for question in questions if question.class_name})
+            "classes": sorted(class_names.values())
             or filter_options.get("classes", ["1학년 1반", "1학년 2반", "1학년 3반"]),
         }
         self.view.set_filter_options(filter_options)
@@ -298,6 +318,54 @@ class ExamController:
         success, message = self.pdf_service.export_exam_pdf(save_path, self.view.get_exam_form_data(), questions)
         self._show_export_result(success, message)
 
+    def export_saved_exam_pdf(self, exam_id: object) -> None:
+        target_exam_id = self._resolve_exam_id(exam_id)
+        if target_exam_id is None:
+            self._show_error("PDF로 출력할 시험지 정보를 찾을 수 없습니다.")
+            return
+
+        try:
+            exam = ExamRepository.read(target_exam_id)
+            exam_questions = ExamQuestionRepository.read_by_exam(target_exam_id)
+        except Exception as exc:
+            self._show_error(f"시험지 조회 중 오류가 발생했습니다: {exc}")
+            return
+
+        if not exam:
+            self._show_error("PDF로 출력할 시험지를 찾을 수 없습니다.")
+            return
+
+        questions = []
+        for exam_question in exam_questions:
+            try:
+                question = QuestionRepository.read(exam_question.question_id)
+            except Exception:
+                question = None
+            if question:
+                questions.append(self._to_view_question(question))
+
+        if not questions:
+            self._show_error("PDF로 출력할 문제가 없습니다.")
+            return
+
+        save_path = self.view.get_pdf_save_path()
+        if not save_path:
+            return
+        if not save_path.lower().endswith(".pdf"):
+            save_path = f"{save_path}.pdf"
+
+        exam_info = {
+            "exam_name": exam.exam_name,
+            "class_name": exam.target_class,
+            "exam_date": exam.exam_date or "",
+        }
+        success, message = self.pdf_service.export_exam_pdf(
+            save_path,
+            exam_info,
+            self._get_exam_paper_questions(questions),
+        )
+        self._show_export_result(success, message)
+
     def on_manual_select_clicked(self) -> None:
         self.manual_select_questions()
 
@@ -418,6 +486,16 @@ class ExamController:
 
     def _normalize_filter_value(self, value: str, empty_label: str) -> str:
         return "" if value == empty_label else value
+
+    def _normalize_class_name(self, value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "")).strip()
+
+    def _format_class_name(self, value: Any) -> str:
+        text = self._normalize_class_name(value)
+        match = re.fullmatch(r"(\d+)학년(\d+)반", text)
+        if match:
+            return f"{match.group(1)}학년 {match.group(2)}반"
+        return str(value or "").strip()
 
     def _get_exam_criteria(self) -> dict[str, Any]:
         criteria: dict[str, Any] = {}
