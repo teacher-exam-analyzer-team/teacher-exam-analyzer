@@ -520,7 +520,7 @@ python main.py
 feature/core
         \
          \
-feature/ui ----> feature/integration ----> develop ----> main
+feature/ui ----> feature/integration ----> main
          /
         /
 feature/docs
