@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from PySide6.QtWidgets import QMessageBox
 
 from app.models.question_model import Question
 from app.repositories.question_repository import QuestionRepository
+from app.repositories.student_repository import StudentRepository
 
 
 class QuestionController:
@@ -13,6 +15,7 @@ class QuestionController:
         self.view = view
         self.editing_question_id: int | None = None
         self._connect_view_events()
+        self.refresh_options()
         self.refresh_questions()
 
     def _connect_view_events(self) -> None:
@@ -35,6 +38,34 @@ class QuestionController:
         filtered_questions = [question for question in questions if self._matches_filters(question, filters)]
         self.view.set_questions_data([self._to_view_data(question) for question in filtered_questions])
 
+    def refresh_options(self) -> None:
+        if not hasattr(self.view, "set_class_options"):
+            return
+
+        classes: list[str] = []
+        normalized_classes: set[str] = set()
+        try:
+            for student in StudentRepository.read_all(active_only=False):
+                class_name = self._format_class_name(getattr(student, "class_name", ""))
+                normalized_class_name = self._normalize_class_name(class_name)
+                if class_name and normalized_class_name not in normalized_classes:
+                    classes.append(class_name)
+                    normalized_classes.add(normalized_class_name)
+        except Exception:
+            classes = []
+
+        try:
+            for question in QuestionRepository.read_all(active_only=False):
+                class_name = self._format_class_name(getattr(question, "class_name", ""))
+                normalized_class_name = self._normalize_class_name(class_name)
+                if class_name and normalized_class_name not in normalized_classes:
+                    classes.append(class_name)
+                    normalized_classes.add(normalized_class_name)
+        except Exception:
+            pass
+
+        self.view.set_class_options(classes)
+
     def create_question(self) -> None:
         form_data = self.view.get_question_form_data()
         missing_fields = self._get_missing_required_fields(form_data)
@@ -45,7 +76,7 @@ class QuestionController:
         question = Question(
             question_id=self.editing_question_id,
             exam_name=form_data["exam_name"],
-            class_name=form_data["class_name"],
+            class_name=self._format_class_name(form_data["class_name"]),
             question_text=form_data["content"],
             category=form_data["type"],
             sub_category=form_data["sub_category"],
@@ -140,7 +171,7 @@ class QuestionController:
             return False
         if filters.get("exam") and question.exam_name != filters["exam"]:
             return False
-        if filters.get("class_name") and question.class_name != filters["class_name"]:
+        if filters.get("class_name") and self._normalize_class_name(question.class_name) != self._normalize_class_name(filters["class_name"]):
             return False
         if filters.get("sub_category") and filters["sub_category"].lower() not in (question.sub_category or "").lower():
             return False
@@ -164,7 +195,7 @@ class QuestionController:
         return {
             "id": question.question_id,
             "exam": question.exam_name or "미지정",
-            "class_name": question.class_name or "미지정",
+            "class_name": self._format_class_name(question.class_name) or "미지정",
             "content": question.question_text,
             "type": question.category,
             "sub_category": question.sub_category or "",
@@ -175,3 +206,13 @@ class QuestionController:
             "tags": question.tags or "",
             "status": "활성" if question.is_active else "비활성",
         }
+
+    def _normalize_class_name(self, value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "")).strip()
+
+    def _format_class_name(self, value: Any) -> str:
+        text = self._normalize_class_name(value)
+        match = re.fullmatch(r"(\d+)학년(\d+)반", text)
+        if match:
+            return f"{match.group(1)}학년 {match.group(2)}반"
+        return str(value or "").strip()

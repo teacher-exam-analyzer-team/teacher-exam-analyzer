@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -90,6 +91,14 @@ class StudentManageView(QWidget):
                 color: #28384c;
                 min-height: 30px;
                 padding: 8px 10px;
+            }
+            QComboBox QAbstractItemView {
+                background: white;
+                border: 1px solid #d8e0ea;
+                color: #28384c;
+                selection-background-color: #e8f2ff;
+                selection-color: #172033;
+                outline: 0;
             }
             QPushButton {
                 background: white;
@@ -185,12 +194,51 @@ class StudentManageView(QWidget):
             self.students_table.setRowHeight(row_index, 38)
 
     def _refresh_students(self) -> None:
+        self._refresh_class_filter_options()
         keyword = self.search_input.text().strip()
         class_name = self.class_filter.currentText()
         if class_name == "전체 반":
             class_name = ""
 
         self.set_students_data(self.student_controller.search_students(keyword, class_name))
+
+    def _refresh_class_filter_options(self) -> None:
+        if not hasattr(self, "class_filter"):
+            return
+
+        current = self.class_filter.currentText()
+        values = ["전체 반", "1학년 1반", "1학년 2반", "1학년 3반"]
+        seen = {self._normalize_class_name(value) for value in values}
+        try:
+            for student in self.student_controller.get_students():
+                class_name = self._format_class_name(student.get("class_name", ""))
+                normalized_class_name = self._normalize_class_name(class_name)
+                if class_name and normalized_class_name not in seen:
+                    values.append(class_name)
+                    seen.add(normalized_class_name)
+        except Exception:
+            pass
+
+        existing = [self.class_filter.itemText(index) for index in range(self.class_filter.count())]
+        if existing == values:
+            return
+
+        self.class_filter.blockSignals(True)
+        self.class_filter.clear()
+        self.class_filter.addItems(values)
+        index = self.class_filter.findText(current)
+        self.class_filter.setCurrentIndex(index if index >= 0 else 0)
+        self.class_filter.blockSignals(False)
+
+    def _normalize_class_name(self, value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "")).strip()
+
+    def _format_class_name(self, value: Any) -> str:
+        text = self._normalize_class_name(value)
+        match = re.fullmatch(r"(\d+)학년(\d+)반", text)
+        if match:
+            return f"{match.group(1)}학년 {match.group(2)}반"
+        return str(value or "").strip()
 
     def _on_register_clicked(self) -> None:
         name = self.name_input.text().strip()
