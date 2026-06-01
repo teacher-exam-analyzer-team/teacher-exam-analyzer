@@ -578,7 +578,12 @@ class ResultInputService:
         for encoding in ("utf-8-sig", "cp949", "euc-kr"):
             try:
                 with path.open("r", encoding=encoding, newline="") as csv_file:
-                    return [self._normalize_csv_row(dict(row)) for row in csv.DictReader(csv_file)]
+                    rows = [
+                        [self._clean_csv_value(value) for value in row]
+                        for row in csv.reader(csv_file)
+                        if any(str(value or "").strip() for value in row)
+                    ]
+                return self._normalize_csv_rows(rows)
             except UnicodeDecodeError as exc:
                 last_error = exc
 
@@ -787,7 +792,7 @@ class ResultInputService:
         normalized = {}
         for key, value in row.items():
             clean_key = str(key or "").strip().lstrip("\ufeff")
-            clean_value = str(value or "").strip()
+            clean_value = self._clean_csv_value(value)
             lower_key = clean_key.lower().replace(" ", "")
             if lower_key in {
                 "학번",
@@ -810,6 +815,48 @@ class ResultInputService:
                     normalized["student_id"] = value
                     break
         return normalized
+
+    def _normalize_csv_rows(self, rows: list[list[str]]) -> list[dict[str, str]]:
+        if not rows:
+            return []
+
+        first_row = rows[0]
+        if self._has_explicit_student_header(first_row):
+            headers = [str(header or "").strip() for header in first_row]
+            return [
+                self._normalize_csv_row(
+                    {
+                        headers[index]: row[index] if index < len(row) else ""
+                        for index in range(len(headers))
+                    }
+                )
+                for row in rows[1:]
+            ]
+
+        return [self._normalize_positional_csv_row(row) for row in rows]
+
+    def _normalize_positional_csv_row(self, row: list[str]) -> dict[str, str]:
+        if not row:
+            return {}
+
+        normalized = {"student_id": self._clean_csv_value(row[0])}
+        for index, value in enumerate(row[1:], start=1):
+            normalized[f"q{index}"] = self._clean_csv_value(value)
+        return normalized
+
+    def _has_explicit_student_header(self, row: list[str]) -> bool:
+        header_keys = {
+            "학번",
+            "studentid",
+            "student_id",
+            "studentnumber",
+            "student_no",
+            "studentno",
+        }
+        return any(str(value or "").strip().lower().replace(" ", "") in header_keys for value in row)
+
+    def _clean_csv_value(self, value: Any) -> str:
+        return str(value or "").strip()
 
     def _to_int(self, value: Any, default: int = 0) -> int:
         try:
