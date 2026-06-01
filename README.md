@@ -509,7 +509,6 @@ python main.py
 | 브랜치 | 역할 |
 |---|---|
 | main | 최종 안정 버전 관리 |
-| develop | 개발 통합 브랜치 |
 | feature/core | 모델, 데이터베이스, Repository, Service 등 핵심 로직 개발 |
 | feature/ui | PySide6 기반 화면 및 사용자 인터페이스 개발 |
 | feature/integration | Core 기능과 UI 기능을 통합하고 전체 흐름을 연결 |
@@ -535,7 +534,6 @@ feature/docs
 | feature/ui | 학생 관리, 문제은행, 시험지 생성, 결과 입력, 분석 화면 구현 |
 | feature/integration | UI와 Controller, Service, Repository 연결 및 실제 동작 통합 |
 | feature/docs | README, 요구사항, 설계, 테스트, 위험관리, 구현 일정, 의사결정 문서 작성 |
-| develop | 기능 브랜치 병합 후 전체 테스트 |
 | main | 제출 또는 배포 가능한 최종 버전 유지 |
 
 ### 12.4 통합 브랜치 사용 이유
