@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.models.student_model import Student
@@ -11,7 +12,7 @@ class StudentController:
         student = Student(
             name=name.strip(),
             student_number=student_number.strip(),
-            class_name=class_name.strip(),
+            class_name=self._format_class_name(class_name),
             is_active=1,
         )
         return StudentRepository.create(student)
@@ -22,7 +23,7 @@ class StudentController:
 
     def search_students(self, keyword: str = "", class_name: str = "") -> list[dict[str, Any]]:
         normalized_keyword = keyword.strip().lower()
-        normalized_class_name = class_name.strip()
+        normalized_class_name = self._normalize_class_name(class_name)
 
         students = StudentRepository.read_all(active_only=False)
         filtered_students = []
@@ -32,7 +33,10 @@ class StudentController:
                 or normalized_keyword in student.name.lower()
                 or normalized_keyword in student.student_number.lower()
             )
-            matches_class = not normalized_class_name or student.class_name == normalized_class_name
+            matches_class = (
+                not normalized_class_name
+                or self._normalize_class_name(student.class_name) == normalized_class_name
+            )
 
             if matches_keyword and matches_class:
                 filtered_students.append(student)
@@ -48,7 +52,7 @@ class StudentController:
             student_id=student_id,
             name=name.strip(),
             student_number=student_number.strip(),
-            class_name=class_name.strip(),
+            class_name=self._format_class_name(class_name),
             is_active=existing_student.is_active,
             created_at=existing_student.created_at,
         )
@@ -65,6 +69,16 @@ class StudentController:
             "id": student.student_id,
             "name": student.name,
             "student_id": student.student_number,
-            "class_name": student.class_name,
+            "class_name": self._format_class_name(student.class_name),
             "status": "활성" if student.is_active else "비활성",
         }
+
+    def _normalize_class_name(self, value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "")).strip()
+
+    def _format_class_name(self, value: Any) -> str:
+        text = self._normalize_class_name(value)
+        match = re.fullmatch(r"(\d+)학년(\d+)반", text)
+        if match:
+            return f"{match.group(1)}학년 {match.group(2)}반"
+        return str(value or "").strip()

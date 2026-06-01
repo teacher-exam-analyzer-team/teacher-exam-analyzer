@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -207,11 +208,14 @@ class StudentManageView(QWidget):
 
         current = self.class_filter.currentText()
         values = ["전체 반", "1학년 1반", "1학년 2반", "1학년 3반"]
+        seen = {self._normalize_class_name(value) for value in values}
         try:
             for student in self.student_controller.get_students():
-                class_name = str(student.get("class_name", "") or "").strip()
-                if class_name and class_name not in values:
+                class_name = self._format_class_name(student.get("class_name", ""))
+                normalized_class_name = self._normalize_class_name(class_name)
+                if class_name and normalized_class_name not in seen:
                     values.append(class_name)
+                    seen.add(normalized_class_name)
         except Exception:
             pass
 
@@ -225,6 +229,16 @@ class StudentManageView(QWidget):
         index = self.class_filter.findText(current)
         self.class_filter.setCurrentIndex(index if index >= 0 else 0)
         self.class_filter.blockSignals(False)
+
+    def _normalize_class_name(self, value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "")).strip()
+
+    def _format_class_name(self, value: Any) -> str:
+        text = self._normalize_class_name(value)
+        match = re.fullmatch(r"(\d+)학년(\d+)반", text)
+        if match:
+            return f"{match.group(1)}학년 {match.group(2)}반"
+        return str(value or "").strip()
 
     def _on_register_clicked(self) -> None:
         name = self.name_input.text().strip()

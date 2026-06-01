@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.models.exam_model import Exam
@@ -91,13 +92,16 @@ class ExamController:
             else {}
         )
         questions = QuestionRepository.read_all(active_only=True)
-        class_names = {question.class_name for question in questions if question.class_name}
+        class_names: dict[str, str] = {}
+        for question in questions:
+            class_name = self._format_class_name(question.class_name)
+            if class_name:
+                class_names[self._normalize_class_name(class_name)] = class_name
         try:
-            class_names.update(
-                student.class_name
-                for student in StudentRepository.read_all(active_only=True)
-                if student.class_name
-            )
+            for student in StudentRepository.read_all(active_only=True):
+                class_name = self._format_class_name(student.class_name)
+                if class_name:
+                    class_names[self._normalize_class_name(class_name)] = class_name
         except Exception:
             pass
 
@@ -122,7 +126,7 @@ class ExamController:
                 )
                 or filter_options.get("tags", []),
             ),
-            "classes": sorted(class_names)
+            "classes": sorted(class_names.values())
             or filter_options.get("classes", ["1학년 1반", "1학년 2반", "1학년 3반"]),
         }
         self.view.set_filter_options(filter_options)
@@ -482,6 +486,16 @@ class ExamController:
 
     def _normalize_filter_value(self, value: str, empty_label: str) -> str:
         return "" if value == empty_label else value
+
+    def _normalize_class_name(self, value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "")).strip()
+
+    def _format_class_name(self, value: Any) -> str:
+        text = self._normalize_class_name(value)
+        match = re.fullmatch(r"(\d+)학년(\d+)반", text)
+        if match:
+            return f"{match.group(1)}학년 {match.group(2)}반"
+        return str(value or "").strip()
 
     def _get_exam_criteria(self) -> dict[str, Any]:
         criteria: dict[str, Any] = {}
