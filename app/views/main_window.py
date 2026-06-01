@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Teacher exam analyzer")
         self.resize(1440, 900)
-        self.setMinimumSize(1180, 760)
+        self.setMinimumSize(1024, 680)
 
         root = QWidget()
         root.setObjectName("root")
@@ -153,7 +153,7 @@ class Sidebar(QFrame):
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("sidebar")
-        self.setFixedWidth(220)
+        self.setFixedWidth(200)
         self.setStyleSheet(
             """
             #sidebar {

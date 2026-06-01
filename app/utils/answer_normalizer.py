@@ -17,7 +17,7 @@ class AnswerNormalizer:
     """
     
     # 제거할 문장부호
-    PUNCTUATION = r'[.,!?;:\'"\-]'
+    PUNCTUATION = r'[.,!?;:\'"\-‘’“”]'
     
     @staticmethod
     def normalize(answer: str) -> str:

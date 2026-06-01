@@ -45,7 +45,7 @@ class ResultInputView(QWidget):
         root_layout.addWidget(scroll)
 
         content = QWidget()
-        content.setMinimumWidth(980)
+        content.setMinimumWidth(920)
         scroll.setWidget(content)
 
         layout = QVBoxLayout(content)

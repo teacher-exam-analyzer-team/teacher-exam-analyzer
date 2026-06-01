@@ -194,6 +194,10 @@ class AnalysisController:
         return number
 
     def _set_dashboard_data(self, data: dict[str, Any]) -> None:
+        data = dict(data or {})
+        data["student_results"] = self._sort_dashboard_student_results(
+            data.get("student_results", [])
+        )
         self._last_dashboard_data = data
         if hasattr(self.view, "set_dashboard_data"):
             self.view.set_dashboard_data(data)
@@ -211,6 +215,23 @@ class AnalysisController:
             self.view.set_student_result_data(data.get("student_results", []))
         if self.view.__class__.__name__ == "DashboardView":
             self._apply_dashboard_data_to_existing_widgets(data)
+
+    def _sort_dashboard_student_results(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        sorted_rows = sorted(
+            rows or [],
+            key=lambda row: (
+                float(row.get("score", 0) or 0),
+                int(row.get("correct_count", 0) or 0),
+            ),
+            reverse=True,
+        )
+        return [
+            {
+                **row,
+                "row_no": index,
+            }
+            for index, row in enumerate(sorted_rows, start=1)
+        ]
 
     def _get_dashboard_filter_data_from_widgets(self) -> dict[str, Any]:
         combos = self._find_children_by_class_name("QComboBox")
